@@ -175,7 +175,7 @@ elseif (($user->guest && $guestpost == 0)||!$user->guest)
 			></textarea>
 			<div class="jj-shout-error"></div>
 			
-			<?php if ( $bbcode == 0 ) : ?>
+			<?php if ($bbcode == 0) : ?>
 			<div class="btn-toolbar">
 				<div class="btn-group">
 					<button class="btn btn-small jj-bold">B</button>
@@ -303,17 +303,159 @@ elseif ($guestpost == 1 && $guestpost == 1)
 	textCounter('message','charsLeft', <?php echo $params->get('messagelength', '200'); ?>, <?php echo $params->get('alertlength', '50'); ?>, <?php echo $params->get('warnlength', '10'); ?>);
 	var bbCode = <?php echo $bbcode; ?>;
 	insertBbCode(bbCode);
+	var enterClick = <?php echo $enterclick; ?>;
 
 	(function($){
-		var textarea = $("textarea#message");
-		<?php if($enterclick == 1) { ?>
-		textarea.keypress(function(e){
-			if (e.keyCode == 13 && !e.shiftKey){
+		if(enterClick == 1) {
+			var textarea = $("textarea#message");
+			textarea.keypress(function (e) {
+				if (e.keyCode == 13 && !e.shiftKey) {
+					submitAJAX();
+				}
+			});
+		}
+		else
+		{
+			$( "#shoutbox-submit" ).click( function() {
+				submitAJAX();
+			});
+		}
+
+
+		function submitAJAX
+		{
+			var textarea = $("textarea#message"),
+				filtered_message = '';
+			"use strict";
+			if(textarea.val() == ""){
+				$('.jj-shout-error').append('<p class="inner-jj-error">Please enter a message!</p>').slideDown().show().delay(6000).queue(function(next){
+					$(this).slideUp().hide();
+					$('.inner-jj-error').remove();
+					next();
+				});
+				var $elt = $('#shoutbox-submit').attr('disabled', true);
+				setTimeout(function (){
+					$elt.attr('disabled', false);
+				}, 6000);
+				textarea.addClass('jj-redBorder').delay(6000).queue(function(next){
+					$(this).removeClass('jj-redBorder');
+					next();
+				});
+				return false;
+			}
+			else {
+				<?php if($displayName==1 && !$user->guest){ ?>
+				var name = "<?php echo $user->username;?>";
+				<?php } elseif($displayName==0 && !$user->guest) { ?>
+				var name = "<?php echo $user->name;?>";
 				<?php } else { ?>
-					$( "#shoutbox-submit" ).click( function() {
-						<?php } ?>
-						if(textarea.val() == ""){
-							$('.jj-shout-error').append('<p class="inner-jj-error">Please enter a message!</p>').slideDown().show().delay(6000).queue(function(next){
+				if($('#shoutbox-name').val() == ""){
+					var name = "<?php echo $genericname; ?>";
+				}
+				else{
+					var name = $('#shoutbox-name').val();
+				}
+				<?php } ?>
+				var request = {
+						'name' : name,
+						'message' : textarea.val(),
+						'<?php echo JSession::getFormToken(); ?>'    : '1',
+						'token'   : '<?php echo $_SESSION['token']; ?>',
+						'shout' : 'Shout!',
+						'title' : '<?php echo $title; ?>',
+						'ajax' : 'true'
+						<?php
+						if ($recaptcha==0) {
+						?>
+						,'recaptcha_response_field' : $('#recaptcha_response_field').val(),
+						'recaptcha_challenge_field' : $('#recaptcha_challenge_field').val()
+						<?php
+						}
+						elseif ($securityQuestion == 0)
+						{
+						?>
+						,'sum1' : '<?php echo $que_number1; ?>',
+						'sum2' : '<?php echo $que_number2; ?>',
+						'human' : $('#mathsanswer').val()
+						<?php
+						}
+						?>
+					}
+					<?php
+					if($bbcode == 0)
+					{
+					?>
+					,
+					map = {
+						':)':   '<img src="media/mod_shoutbox/images/icon_e_smile.gif" alt=":)" />',
+						':(':   '<img src="media/mod_shoutbox/images/icon_e_sad.gif" alt=":(" />',
+						':D':   '<img src="media/mod_shoutbox/images/icon_e_biggrin.gif" alt=":D" />',
+						'xD':   '<img src="media/mod_shoutbox/images/icon_e_biggrin.gif" alt="xD" />',
+						':P':   '<img src="media/mod_shoutbox/images/icon_razz.gif" alt=":P" />',
+						';)':   '<img src="media/mod_shoutbox/images/icon_e_wink.gif" alt=";)" />',
+						':S':   '<img src="media/mod_shoutbox/images/icon_e_confused.gif" alt=":S" />',
+						':@':   '<img src="media/mod_shoutbox/images/icon_mad.gif" alt=":@" />',
+						':O':   '<img src="media/mod_shoutbox/images/icon_e_surprised.gif" alt=":O" />',
+						'lol':   '<img src="media/mod_shoutbox/images/icon_lol.gif" alt="lol" />'
+					},
+					message = textarea.val();
+					Object.keys(map).forEach(function (ico) {
+						var icoE   = ico.replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1");
+						message    = message.replace( new RegExp(icoE, 'g'), map[ico] );
+					});
+					filtered_message = message.replace(/\[i\](.*)\[\/i\]/g, '<span class="jj-italic">$1</span>')
+						.replace(/\[s\](.*)\[\/s\]/g, '<span class="jj-strike">$1</span>')
+						.replace(/\[b\](.*)\[\/b\]/g, '<span class="jj-bold">$1</span>')
+						.replace(/\n/g, "<br />")
+						.replace(/\[url=(?:http(s?):\/\/)?([^\]]+)\]\s*(.*?)\s*\[\/url\]/gi, "<a href='http$1://$2'>$3</a>");
+					<?php
+				}
+				else
+				{
+				?>
+					filtered_message = textarea.val().replace(/\n/g, "<br />");
+				<?php
+				}
+				?>
+				$.ajax({
+					type: "POST",
+					url: "<?php echo JUri::current() . '?option=com_ajax&module=shoutbox&method=submit&format=json'; ?>",
+					data: request,
+					success:function(response){
+						if (response.data['value'])
+						{
+							var deleteResponse = '';
+							<?php
+							if ($user->authorise('core.delete'))
+							{
+							?>
+							deleteResponse = '<form method="post" name="delete"><input name="delete" type="submit" value="x" /><input name="idvalue" type="hidden" value="' + response.data['value'] + '" /></form>';
+							<?php
+							}
+							?>
+							$('<div><h1>' + name + ' - 	<?php echo JFactory::getDate('now', JFactory::getConfig()->get('offset'))->format($show_date . 'H:i');?>' + deleteResponse + '</h1><p>' + filtered_message + '</p>').hide().insertAfter('#newshout').slideDown();
+							<?php if($displayName == 2 || $user->guest)
+							{ ?>
+							$('#shoutbox-name').val('');
+							<?php }
+							if($securityQuestion == 0)
+							{?>
+							$('#mathsanswer').val('');
+							<?php }
+							if($recaptcha == 0)
+							{ ?>
+							Recaptcha.reload();
+							<?php } ?>
+							textarea.val('');
+						}
+						else
+						{
+							var error = '';
+							if(response.data['error'])
+							{
+								error = response.data['error'];
+							}
+							$('.jj-shout-error').append('<p class="inner-jj-error">' + error + '</p>').slideDown().show().delay(6000).queue(function(next){
 								$(this).slideUp().hide();
 								$('.inner-jj-error').remove();
 								next();
@@ -326,149 +468,16 @@ elseif ($guestpost == 1 && $guestpost == 1)
 								$(this).removeClass('jj-redBorder');
 								next();
 							});
-							return false;
-						}
-						else {
-							<?php if($displayName==1 && !$user->guest){ ?>
-							var name = "<?php echo $user->username;?>";
-							<?php } elseif($displayName==0 && !$user->guest) { ?>
-							var name = "<?php echo $user->name;?>";
-							<?php } else { ?>
-							if($('#shoutbox-name').val() == ""){
-								var name = "<?php echo $genericname; ?>";
-							}
-							else{
-								var name = $('#shoutbox-name').val();
-							}
-							<?php } ?>
-							var request = {
-								'name' : name,
-								'message' : textarea.val(),
-								'<?php echo JSession::getFormToken(); ?>'    : '1',
-								'token'   : '<?php echo $_SESSION['token']; ?>',
-								'shout' : 'Shout!',
-								'title' : '<?php echo $title; ?>',
-								'ajax' : 'true'
-								<?php
-								if ($recaptcha==0) {
-								?>
-								,'recaptcha_response_field' : $('#recaptcha_response_field').val(),
-								'recaptcha_challenge_field' : $('#recaptcha_challenge_field').val()
-								<?php
-								}
-								elseif ($securityQuestion == 0)
-								{
-								?>
-								,'sum1' : '<?php echo $que_number1; ?>',
-								'sum2' : '<?php echo $que_number2; ?>',
-								'human' : $('#mathsanswer').val()
-								<?php
-								}
-								?>
-							}
-							<?php
-							if($bbcode == 0)
-							{
-							?>
-							,
-							map = {
-								':)':   '<img src="media/mod_shoutbox/images/icon_e_smile.gif" alt=":)" />',
-								':(':   '<img src="media/mod_shoutbox/images/icon_e_sad.gif" alt=":(" />',
-								':D':   '<img src="media/mod_shoutbox/images/icon_e_biggrin.gif" alt=":D" />',
-								'xD':   '<img src="media/mod_shoutbox/images/icon_e_biggrin.gif" alt="xD" />',
-								':P':   '<img src="media/mod_shoutbox/images/icon_razz.gif" alt=":P" />',
-								';)':   '<img src="media/mod_shoutbox/images/icon_e_wink.gif" alt=";)" />',
-								':S':   '<img src="media/mod_shoutbox/images/icon_e_confused.gif" alt=":S" />',
-								':@':   '<img src="media/mod_shoutbox/images/icon_mad.gif" alt=":@" />',
-								':O':   '<img src="media/mod_shoutbox/images/icon_e_surprised.gif" alt=":O" />',
-								'lol':   '<img src="media/mod_shoutbox/images/icon_lol.gif" alt="lol" />'
-							},
-							message = textarea.val();
-							Object.keys(map).forEach(function (ico) {
-								var icoE   = ico.replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1");
-								message    = message.replace( new RegExp(icoE, 'g'), map[ico] );
-							});
-							var filtered_message = message.replace(/\[i\](.*)\[\/i\]/g, '<span class="jj-italic">$1</span>')
-							.replace(/\[s\](.*)\[\/s\]/g, '<span class="jj-strike">$1</span>')
-							.replace(/\[b\](.*)\[\/b\]/g, '<span class="jj-bold">$1</span>')
-							.replace(/\n/g, "<br />")
-							.replace(/\[url=(?:http(s?):\/\/)?([^\]]+)\]\s*(.*?)\s*\[\/url\]/gi, "<a href='http$1://$2'>$3</a>");
-							<?php
-							}
-							else
-							{
-							?>							
-							var filtered_message = textarea.val().replace(/\n/g, "<br />");
-							<?php
-							}
-							?>
-							$.ajax({
-								type: "POST",
-								url: "<?php echo JUri::current() . '?option=com_ajax&module=shoutbox&method=submit&format=json'; ?>",
-								data: request,
-								success:function(response){
-									if (response.data['value'])
-									{
-										var deleteResponse = '';
-										<?php
-										if ($user->authorise('core.delete'))
-										{
-										?>
-										deleteResponse = '<form method="post" name="delete"><input name="delete" type="submit" value="x" /><input name="idvalue" type="hidden" value="' + response.data['value'] + '" /></form>';
-										<?php
-										}
-										?>
-										$('<div><h1>' + name + ' - 	<?php echo JFactory::getDate('now', JFactory::getConfig()->get('offset'))->format($show_date . 'H:i');?>' + deleteResponse + '</h1><p>' + filtered_message + '</p>').hide().insertAfter('#newshout').slideDown();
-										<?php if($displayName == 2 || $user->guest)
-										{ ?>
-										$('#shoutbox-name').val('');
-										<?php }
-										if($securityQuestion == 0)
-										{?>
-										$('#mathsanswer').val('');
-										<?php }
-										if($recaptcha == 0)
-										{ ?>
-										Recaptcha.reload();
-										<?php } ?>
-										textarea.val('');
-									}
-									else
-									{
-										var error = '';
-										if(response.data['error'])
-										{
-											error = response.data['error'];
-										}
-										$('.jj-shout-error').append('<p class="inner-jj-error">' + error + '</p>').slideDown().show().delay(6000).queue(function(next){
-											$(this).slideUp().hide();
-											$('.inner-jj-error').remove();
-											next();
-										});
-										var $elt = $('#shoutbox-submit').attr('disabled', true);
-										setTimeout(function (){
-											$elt.attr('disabled', false);
-										}, 6000);
-										textarea.addClass('jj-redBorder').delay(6000).queue(function(next){
-											$(this).removeClass('jj-redBorder');
-											next();
-										});
 
-										return false;
-									}
-								},
-								error:function(ts){
-									console.log(ts.responseText);
-								}
-							});
 							return false;
 						}
-						<?php if($enterclick == 1) { ?>
+					},
+					error:function(ts){
+						console.log(ts.responseText);
 					}
-				}
-				<?php } else { ?>
+				});
+				return false;
 			}
-			<?php } ?>
-		);
+		}
 	})(jQuery);
 </script>
