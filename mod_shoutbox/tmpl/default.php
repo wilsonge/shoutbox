@@ -132,17 +132,14 @@ elseif (($user->guest && $guestpost == 0)||!$user->guest)
 		// Displays the Name of the user if logged in unless stated in the parameters to be a input box
 		if ($displayName == 0 && !$user->guest)
 		{
-			echo JText::_('SHOUT_NAME');
-			echo ": ";
-			echo $user->name;
+			echo JText::_('SHOUT_NAME') . ': <span id="shoutbox-name"' . $user->name . '</span>';
 		}
 		elseif ($displayName == 1 && !$user->guest)
 		{
-			echo JText::_('SHOUT_NAME');
-			echo ": ";
-			echo $user->username;
+			echo JText::_('SHOUT_NAME') . ': <span id="shoutbox-name"' . $user->username . '</span>';
 		}
-		elseif (($guestpost == 0 && $user->guest)||($displayName == 2 && !$user->guest))
+		elseif (($guestpost == 0 && $user->guest)
+			||($displayName == 2 && !$user->guest))
 		{
 			?>
 			<input name="name" type="text" value="Name" maxlength="25" id="shoutbox-name" onfocus="this.value = (this.value=='Name')? '' : this.value;" />
@@ -325,7 +322,9 @@ elseif ($guestpost == 1 && $guestpost == 1)
 		function submitAJAX
 		{
 			var textarea = $("textarea#message"),
-				filtered_message = '';
+				filtered_message = '',
+				name = '',
+				shoutboxName = $('#shoutbox-name');
 			"use strict";
 			if(textarea.val() == ""){
 				$('.jj-shout-error').append('<p class="inner-jj-error">Please enter a message!</p>').slideDown().show().delay(6000).queue(function(next){
@@ -344,46 +343,40 @@ elseif ($guestpost == 1 && $guestpost == 1)
 				return false;
 			}
 			else {
-				<?php if($displayName==1 && !$user->guest){ ?>
-				var name = "<?php echo $user->username;?>";
-				<?php } elseif($displayName==0 && !$user->guest) { ?>
-				var name = "<?php echo $user->name;?>";
-				<?php } else { ?>
-				if($('#shoutbox-name').val() == ""){
-					var name = "<?php echo $genericname; ?>";
+				if (shoutboxName.val() == "") {
+					name = "<?php echo $genericname; ?>";
 				}
-				else{
-					var name = $('#shoutbox-name').val();
+				else {
+					name = shoutboxName.val();
 				}
-				<?php } ?>
 				var request = {
-						'name' : name,
-						'message' : textarea.val(),
-						'<?php echo JSession::getFormToken(); ?>'    : '1',
-						'token'   : '<?php echo $_SESSION['token']; ?>',
-						'shout' : 'Shout!',
-						'title' : '<?php echo $title; ?>',
-						'ajax' : 'true'
-						<?php
-						if ($recaptcha==0) {
-						?>
-						,'recaptcha_response_field' : $('#recaptcha_response_field').val(),
-						'recaptcha_challenge_field' : $('#recaptcha_challenge_field').val()
-						<?php
-						}
-						elseif ($securityQuestion == 0)
-						{
-						?>
-						,'sum1' : '<?php echo $que_number1; ?>',
-						'sum2' : '<?php echo $que_number2; ?>',
-						'human' : $('#mathsanswer').val()
-						<?php
-						}
-						?>
-					}
+					'name' : name,
+					'message' : textarea.val(),
+					'<?php echo JSession::getFormToken(); ?>'    : '1',
+					'token'   : '<?php echo $_SESSION['token']; ?>',
+					'shout' : 'Shout!',
+					'title' : '<?php echo $title; ?>',
+					'ajax' : 'true'
 					<?php
-					if($bbcode == 0)
+					if ($recaptcha==0) {
+					?>
+					,'recaptcha_response_field' : $('#recaptcha_response_field').val(),
+					'recaptcha_challenge_field' : $('#recaptcha_challenge_field').val()
+					<?php
+					}
+					elseif ($securityQuestion == 0)
 					{
+					?>
+					,'sum1' : '<?php echo $que_number1; ?>',
+					'sum2' : '<?php echo $que_number2; ?>',
+					'human' : $('#mathsanswer').val()
+					<?php
+					}
+					?>
+				}
+				<?php
+				if($bbcode == 0)
+				{
 					?>
 					,
 					map = {
@@ -434,18 +427,24 @@ elseif ($guestpost == 1 && $guestpost == 1)
 							}
 							?>
 							$('<div><h1>' + name + ' - 	<?php echo JFactory::getDate('now', JFactory::getConfig()->get('offset'))->format($show_date . 'H:i');?>' + deleteResponse + '</h1><p>' + filtered_message + '</p>').hide().insertAfter('#newshout').slideDown();
+
 							<?php if($displayName == 2 || $user->guest)
 							{ ?>
-							$('#shoutbox-name').val('');
+							shoutboxName.val('');
 							<?php }
-							if($securityQuestion == 0)
+
+							if ($securityQuestion == 0)
 							{?>
 							$('#mathsanswer').val('');
 							<?php }
-							if($recaptcha == 0)
-							{ ?>
+
+							if ($recaptcha == 0)
+							{
+							?>
 							Recaptcha.reload();
-							<?php } ?>
+							<?php
+							}
+							?>
 							textarea.val('');
 						}
 						else
