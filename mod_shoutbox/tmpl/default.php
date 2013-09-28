@@ -319,7 +319,7 @@ elseif ($guestpost == 1 && $guestpost == 1)
 		}
 
 
-		function submitAJAX
+		function submitAJAX()
 		{
 			var textarea = $("textarea#message"),
 				filtered_message = '',
